@@ -30,13 +30,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 let tray: Tray | null = null;
 let backendProcess: ChildProcess | null = null;
 
-/**
- * Spawn the local backend server that securely proxies Google Cloud API calls.
- * The service account JSON lives only inside backend/ and is never bundled
- * into the Electron renderer.
- */
 function startBackendServer() {
-  // Resolve the backend entry point — works in both dev and packaged builds
   const backendScript = existsSync(
     path.join(__dirname, "..", "backend", "server.js"),
   )

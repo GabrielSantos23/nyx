@@ -13,6 +13,7 @@ import {
   Check,
   X,
   ArrowDown,
+  ExternalLink,
 } from "lucide-react";
 import { analytics } from "@/lib/analytics/analytics.service";
 import { useTheme } from "@/hooks/useTheme";
@@ -34,6 +35,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   const [updateStatus, setUpdateStatus] = useState<
     "idle" | "checking" | "available" | "uptodate" | "error"
   >("idle");
+  const [appVersion, setAppVersion] = useState<string>("...");
+  const [latestRelease, setLatestRelease] = useState<any>(null);
   const themeDropdownRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
@@ -77,6 +80,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then((v) => setAppVersion(v));
+    }
+
     const unsubs: Array<(() => void) | void> = [];
 
     if (window.electronAPI?.onUpdateChecking) {
@@ -88,8 +95,17 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     }
     if (window.electronAPI?.onUpdateAvailable) {
       unsubs.push(
-        window.electronAPI.onUpdateAvailable(() => {
+        window.electronAPI.onUpdateAvailable((release?: any) => {
           setUpdateStatus("available");
+          setLatestRelease(release);
+          toast.show({
+            title: "Update available!",
+            description: release?.version
+              ? `Version ${release.version} is ready to download.`
+              : "A new version is available.",
+            variant: "success",
+            duration: 6000,
+          });
         }),
       );
     }
@@ -97,7 +113,13 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
       unsubs.push(
         window.electronAPI.onUpdateNotAvailable(() => {
           setUpdateStatus("uptodate");
-          setTimeout(() => setUpdateStatus("idle"), 3000);
+          toast.show({
+            title: "You're up to date",
+            description: `Nyx v${appVersion} is the latest version.`,
+            variant: "success",
+            duration: 4000,
+          });
+          setTimeout(() => setUpdateStatus("idle"), 4000);
         }),
       );
     }
@@ -106,7 +128,13 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         window.electronAPI.onUpdateError((err: string) => {
           console.error("[Settings] Update error:", err);
           setUpdateStatus("error");
-          setTimeout(() => setUpdateStatus("idle"), 3000);
+          toast.show({
+            title: "Update check failed",
+            description: err || "Could not reach GitHub. Try again later.",
+            variant: "error",
+            duration: 5000,
+          });
+          setTimeout(() => setUpdateStatus("idle"), 4000);
         }),
       );
     }
@@ -363,7 +391,12 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-text-primary">Version</h3>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  You are currently using Nyx version 1.0.1.
+                  You are currently using Nyx v{appVersion}.
+                  {updateStatus === "available" && latestRelease?.version && (
+                    <span className="text-accent-primary font-medium ml-1">
+                      → v{latestRelease.version} available!
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -371,11 +404,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
               onClick={async () => {
                 if (updateStatus === "available") {
                   try {
-                    // @ts-ignore
-                    await window.electronAPI.downloadUpdate();
-                    onClose();
+                    await window.electronAPI.openReleasesPage();
                   } catch (err) {
-                    console.error("Failed to start download:", err);
+                    console.error("Failed to open releases page:", err);
                   }
                 } else {
                   handleCheckForUpdates();
@@ -401,8 +432,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 </>
               ) : updateStatus === "available" ? (
                 <>
-                  <ArrowDown size={14} />
-                  Update Available
+                  <ExternalLink size={14} />
+                  Download Update
                 </>
               ) : updateStatus === "uptodate" ? (
                 <>

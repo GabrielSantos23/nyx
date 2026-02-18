@@ -176,8 +176,13 @@ declare global {
       setOpenAtLogin: (enabled: boolean) => Promise<{ success: boolean }>;
 
       checkForUpdates: () => Promise<void>;
+      getAppVersion: () => Promise<string>;
+      openReleasesPage: () => Promise<void>;
+      downloadUpdate: () => Promise<void>;
       onUpdateChecking: (callback: () => void) => (() => void) | void;
-      onUpdateAvailable: (callback: () => void) => (() => void) | void;
+      onUpdateAvailable: (
+        callback: (release?: any) => void,
+      ) => (() => void) | void;
       onUpdateNotAvailable: (callback: () => void) => (() => void) | void;
       onUpdateError: (callback: (error: string) => void) => (() => void) | void;
 

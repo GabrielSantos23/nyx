@@ -104,7 +104,6 @@ export class IntelligenceManager {
       console.log("Audio capture started successfully");
     } catch (e) {
       console.error("Failed to start audio capture:", e);
-      // Clean up STT since we can't capture audio
       if (this.stt) this.stt.stop();
       this.isListening = false;
       throw e;

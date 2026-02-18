@@ -146,6 +146,31 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () =>
       ipcRenderer.removeListener("overlay-visibility-changed", handler);
   },
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  openReleasesPage: () => ipcRenderer.invoke("open-releases-page"),
+  downloadUpdate: () => ipcRenderer.invoke("open-releases-page"),
+  onUpdateChecking: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("update-checking", handler);
+    return () => ipcRenderer.removeListener("update-checking", handler);
+  },
+  onUpdateAvailable: (callback: (release?: any) => void) => {
+    const handler = (_event: any, release?: any) => callback(release);
+    ipcRenderer.on("update-available", handler);
+    return () => ipcRenderer.removeListener("update-available", handler);
+  },
+  onUpdateNotAvailable: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("update-not-available", handler);
+    return () => ipcRenderer.removeListener("update-not-available", handler);
+  },
+  onUpdateError: (callback: (error: string) => void) => {
+    const handler = (_event: any, error: string) => callback(error);
+    ipcRenderer.on("update-error", handler);
+    return () => ipcRenderer.removeListener("update-error", handler);
+  },
+
   quitApp: () => {
     require("electron").ipcRenderer.send("quit-app");
   },

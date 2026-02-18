@@ -12,6 +12,7 @@ import { dbRequest } from "./db/DatabaseManager";
 import { chatFileManager, ChatMessage } from "./db/ChatFileManager";
 import { ThemeManager } from "./ThemeManager";
 import { screenshotHelper } from "./ScreenshotHelper";
+import { updateManager } from "./UpdateManager";
 import * as path from "node:path";
 import * as fs from "node:fs";
 
@@ -596,6 +597,18 @@ export function registerHandlers() {
       console.error("Failed to restart Ollama:", error);
       return { success: false, error: error.message };
     }
+  });
+
+  ipcMain.handle("check-for-updates", async () => {
+    await updateManager.checkForUpdates();
+  });
+
+  ipcMain.handle("get-app-version", () => {
+    return updateManager.getAppVersion();
+  });
+
+  ipcMain.handle("open-releases-page", () => {
+    updateManager.openReleasesPage();
   });
 
   registerGlobalShortcuts();
