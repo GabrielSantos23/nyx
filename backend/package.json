@@ -1,0 +1,17 @@
+{
+  "name": "nyx-backend",
+  "version": "1.0.0",
+  "description": "Secure backend proxy for Nyx — handles Google Cloud API calls",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^7.2.1",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

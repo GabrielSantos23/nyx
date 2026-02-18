@@ -1,0 +1,9 @@
+# Google service account credentials — NEVER commit these
+gen-lang-client-*.json
+service-account.json
+*.json
+!package.json
+
+# Dependencies
+node_modules/
+package-lock.json

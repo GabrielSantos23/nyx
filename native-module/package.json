@@ -1,0 +1,27 @@
+{
+  "name": "native-module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@napi-rs/cli": "^3.5.1"
+  },
+  "napi": {
+    "name": "nyx-audio",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "dependencies": {
+    "@node-rs/helper": "^1.6.0"
+  }
+}
