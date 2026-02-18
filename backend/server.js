@@ -8,37 +8,65 @@ const { WebSocketServer } = require2("ws");
 
 const WS_OPEN = 1;
 
-const CREDENTIALS_PATH = path.join(
-  __dirname,
-  "gen-lang-client-0576003659-31dbf58404ac.json",
-);
+const os = require("os");
 
-console.log("[Backend] Looking for credentials at:", CREDENTIALS_PATH);
+function findCredentials() {
+  const locations = [];
 
-if (!fs.existsSync(CREDENTIALS_PATH)) {
-  console.error(
-    `[Backend] ❌ Service account file not found at: ${CREDENTIALS_PATH}\n` +
-      `Please place the gen-lang-client-*.json file inside the backend/ folder.`,
+  // 1. User-provided credentials (from Settings UI)
+  const platform = process.platform;
+  let userDataDir;
+  if (platform === "win32") {
+    userDataDir = path.join(process.env.APPDATA || "", "nyx");
+  } else if (platform === "darwin") {
+    userDataDir = path.join(
+      os.homedir(),
+      "Library",
+      "Application Support",
+      "nyx",
+    );
+  } else {
+    userDataDir = path.join(os.homedir(), ".config", "nyx");
+  }
+  locations.push(path.join(userDataDir, "google-cloud-credentials.json"));
+
+  // 2. Dev credentials (bundled in backend folder)
+  locations.push(
+    path.join(__dirname, "gen-lang-client-0576003659-31dbf58404ac.json"),
   );
-  process.exit(1);
+
+  for (const loc of locations) {
+    if (fs.existsSync(loc)) {
+      console.log("[Backend] Found credentials at:", loc);
+      return loc;
+    }
+  }
+  return null;
 }
 
-process.env.GOOGLE_APPLICATION_CREDENTIALS = CREDENTIALS_PATH;
-console.log(
-  "[Backend] GOOGLE_APPLICATION_CREDENTIALS set to:",
-  CREDENTIALS_PATH,
-);
+const CREDENTIALS_PATH = findCredentials();
+
+if (!CREDENTIALS_PATH) {
+  console.warn(
+    "[Backend] ⚠ No Google Cloud credentials found.\n" +
+      "  Speech-to-text will not work until credentials are provided.\n" +
+      "  Users can add credentials via Settings > Audio > Speech Provider.",
+  );
+} else {
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = CREDENTIALS_PATH;
+  console.log(
+    "[Backend] GOOGLE_APPLICATION_CREDENTIALS set to:",
+    CREDENTIALS_PATH,
+  );
+}
 
 let speech;
 try {
   speech = require2("@google-cloud/speech");
   console.log("[Backend] @google-cloud/speech loaded OK");
 } catch (err) {
-  console.error(
-    "[Backend] ❌ Failed to load @google-cloud/speech:",
-    err.stack || err,
-  );
-  process.exit(1);
+  console.warn("[Backend] ⚠ @google-cloud/speech not available:", err.message);
+  speech = null;
 }
 
 const PORT = process.env.BACKEND_PORT || 3001;
@@ -67,6 +95,22 @@ wss.on("connection", (ws) => {
 
   function startSTTStream(lang) {
     if (!isActive) return;
+
+    if (!speech || !CREDENTIALS_PATH) {
+      console.error(
+        "[Backend] Cannot start STT: missing speech module or credentials",
+      );
+      if (ws.readyState === WS_OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message:
+              "Google Cloud credentials not configured. Please add credentials in Settings > Audio.",
+          }),
+        );
+      }
+      return;
+    }
 
     language = lang || "en-US";
     restartCount = 0;

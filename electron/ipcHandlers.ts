@@ -82,6 +82,60 @@ export function registerHandlers() {
     return { success: true };
   });
 
+  ipcMain.handle("get-stt-provider", async () => {
+    return intelligenceManager.getSTTProvider();
+  });
+
+  ipcMain.handle(
+    "set-stt-provider",
+    async (event, provider: "web" | "google") => {
+      intelligenceManager.setSTTProvider(provider);
+      return { success: true };
+    },
+  );
+
+  ipcMain.handle(
+    "save-google-credentials",
+    async (event, jsonContent: string) => {
+      try {
+        JSON.parse(jsonContent);
+        const credPath = path.join(
+          app.getPath("userData"),
+          "google-cloud-credentials.json",
+        );
+        fs.writeFileSync(credPath, jsonContent, "utf-8");
+        console.log("[IPC] Google Cloud credentials saved to:", credPath);
+        return { success: true };
+      } catch (e: any) {
+        console.error("[IPC] Failed to save Google credentials:", e);
+        return { success: false, error: e.message };
+      }
+    },
+  );
+
+  ipcMain.handle("has-google-credentials", async () => {
+    const credPath = path.join(
+      app.getPath("userData"),
+      "google-cloud-credentials.json",
+    );
+    return fs.existsSync(credPath);
+  });
+
+  ipcMain.handle("remove-google-credentials", async () => {
+    const credPath = path.join(
+      app.getPath("userData"),
+      "google-cloud-credentials.json",
+    );
+    try {
+      if (fs.existsSync(credPath)) {
+        fs.unlinkSync(credPath);
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle("toggle-overlay", async () => {
     windowHelper.toggleOverlay();
     return { success: true };

@@ -105,6 +105,19 @@ declare global {
       getLanguage: () => Promise<string>;
       setLanguage: (lang: "en-US" | "pt-BR") => Promise<{ success: boolean }>;
 
+      getSTTProvider: () => Promise<"web" | "google">;
+      setSTTProvider: (
+        provider: "web" | "google",
+      ) => Promise<{ success: boolean }>;
+      saveGoogleCredentials: (
+        jsonContent: string,
+      ) => Promise<{ success: boolean; error?: string }>;
+      hasGoogleCredentials: () => Promise<boolean>;
+      removeGoogleCredentials: () => Promise<{
+        success: boolean;
+        error?: string;
+      }>;
+
       getRecognitionLanguages: () => Promise<Record<string, any>>;
       setRecognitionLanguage: (key: string) => Promise<{ success: boolean }>;
 

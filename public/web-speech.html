@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Web Speech</title>
+  </head>
+  <body>
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      let recognition = null;
+      let isRunning = false;
+
+      function createRecognition(lang) {
+        const SpeechRecognition =
+          window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          ipcRenderer.send(
+            "web-speech-error",
+            "SpeechRecognition API not available",
+          );
+          return null;
+        }
+
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = lang || "en-US";
+        rec.maxAlternatives = 1;
+
+        rec.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            const text = result[0].transcript;
+            const isFinal = result.isFinal;
+            ipcRenderer.send("web-speech-result", { text, isFinal });
+          }
+        };
+
+        rec.onerror = (event) => {
+          console.error("[WebSpeech] Error:", event.error);
+          if (event.error === "no-speech") return;
+          if (event.error === "aborted") return;
+          ipcRenderer.send("web-speech-error", event.error);
+        };
+
+        rec.onend = () => {
+          console.log("[WebSpeech] Recognition ended, isRunning:", isRunning);
+          if (isRunning) {
+            try {
+              rec.start();
+            } catch (e) {
+              console.error("[WebSpeech] Failed to restart:", e);
+              ipcRenderer.send("web-speech-stopped");
+            }
+          } else {
+            ipcRenderer.send("web-speech-stopped");
+          }
+        };
+
+        return rec;
+      }
+
+      ipcRenderer.on("web-speech-start", (event, { language }) => {
+        console.log("[WebSpeech] Starting with language:", language);
+        isRunning = true;
+
+        if (recognition) {
+          try {
+            recognition.stop();
+          } catch (e) {}
+        }
+
+        recognition = createRecognition(language);
+        if (recognition) {
+          try {
+            recognition.start();
+            ipcRenderer.send("web-speech-started");
+          } catch (e) {
+            console.error("[WebSpeech] Failed to start:", e);
+            ipcRenderer.send("web-speech-error", e.message);
+          }
+        }
+      });
+
+      ipcRenderer.on("web-speech-stop", () => {
+        console.log("[WebSpeech] Stopping");
+        isRunning = false;
+        if (recognition) {
+          try {
+            recognition.stop();
+          } catch (e) {}
+          recognition = null;
+        }
+      });
+
+      ipcRenderer.send("web-speech-ready");
+    </script>
+  </body>
+</html>

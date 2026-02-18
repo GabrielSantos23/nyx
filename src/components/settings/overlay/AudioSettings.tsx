@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, Speaker, Info, FlaskConical } from "lucide-react";
+import {
+  Mic,
+  Speaker,
+  Info,
+  FlaskConical,
+  Upload,
+  Trash2,
+  Cloud,
+  Globe,
+} from "lucide-react";
 import { CustomSelect } from "./CustomSelect";
 
 export const AudioSettings: React.FC = () => {
@@ -11,12 +20,16 @@ export const AudioSettings: React.FC = () => {
   const [useLegacyAudio, setUseLegacyAudio] = useState(false);
 
   const [selectedLanguage, setSelectedLanguage] = useState<string>("");
+  const [sttProvider, setSTTProvider] = useState<"web" | "google">("web");
+  const [hasGoogleCreds, setHasGoogleCreds] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const languageOptions: MediaDeviceInfo[] = [
     {
@@ -35,6 +48,23 @@ export const AudioSettings: React.FC = () => {
     },
   ];
 
+  const sttProviderOptions: MediaDeviceInfo[] = [
+    {
+      deviceId: "web",
+      label: "Microphone (Browser)",
+      kind: "audioinput" as MediaDeviceKind,
+      groupId: "",
+      toJSON: () => ({}),
+    },
+    {
+      deviceId: "google",
+      label: "System Audio (Native)",
+      kind: "audioinput" as MediaDeviceKind,
+      groupId: "",
+      toJSON: () => ({}),
+    },
+  ];
+
   useEffect(() => {
     const loadLanguage = async () => {
       if (window.electronAPI?.getLanguage) {
@@ -45,10 +75,76 @@ export const AudioSettings: React.FC = () => {
     loadLanguage();
   }, []);
 
+  useEffect(() => {
+    const loadSTTSettings = async () => {
+      if (window.electronAPI?.getSTTProvider) {
+        const provider = await window.electronAPI.getSTTProvider();
+        setSTTProvider(provider);
+      }
+      if (window.electronAPI?.hasGoogleCredentials) {
+        const has = await window.electronAPI.hasGoogleCredentials();
+        setHasGoogleCreds(has);
+      }
+    };
+    loadSTTSettings();
+  }, []);
+
   const handleLanguageChange = async (lang: string) => {
     setSelectedLanguage(lang);
     if (window.electronAPI?.setLanguage) {
       await window.electronAPI.setLanguage(lang as "en-US" | "pt-BR");
+    }
+  };
+
+  const handleSTTProviderChange = async (provider: string) => {
+    const p = provider as "web" | "google";
+    setSTTProvider(p);
+    if (window.electronAPI?.setSTTProvider) {
+      await window.electronAPI.setSTTProvider(p);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      JSON.parse(text);
+
+      if (window.electronAPI?.saveGoogleCredentials) {
+        const result = await window.electronAPI.saveGoogleCredentials(text);
+        if (result.success) {
+          setHasGoogleCreds(true);
+          setUploadStatus("Saved! Please restart the app.");
+          setTimeout(() => setUploadStatus(""), 5000);
+        } else {
+          setUploadStatus(`Error: ${result.error}`);
+        }
+      }
+    } catch (err) {
+      setUploadStatus(
+        "Invalid JSON file. Please select a valid service account key.",
+      );
+      setTimeout(() => setUploadStatus(""), 4000);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveCredentials = async () => {
+    if (window.electronAPI?.removeGoogleCredentials) {
+      const result = await window.electronAPI.removeGoogleCredentials();
+      if (result.success) {
+        setHasGoogleCreds(false);
+        setUploadStatus("Removed! Please restart the app.");
+        if (sttProvider === "google") {
+          handleSTTProviderChange("web");
+        }
+        setTimeout(() => setUploadStatus(""), 3000);
+      }
     }
   };
 
@@ -207,6 +303,90 @@ export const AudioSettings: React.FC = () => {
                 Select the language for voice recognition.
               </p>
             </div>
+          </div>
+
+          <div className="h-px bg-border-subtle" />
+
+          {/* Speech Provider Section */}
+          <div>
+            <CustomSelect
+              label="Speech Provider"
+              icon={<Globe size={16} />}
+              value={sttProvider}
+              options={sttProviderOptions}
+              onChange={handleSTTProviderChange}
+              placeholder="Select Speech Provider"
+            />
+
+            <div className="flex gap-2 items-center mt-2 px-1">
+              <Info size={14} className="text-text-secondary shrink-0" />
+              <p className="text-xs text-text-secondary">
+                {sttProvider === "web"
+                  ? "Captures audio from your microphone. Requires Google Cloud credentials."
+                  : "Captures system/desktop audio using native module. Requires Google Cloud credentials."}
+              </p>
+            </div>
+          </div>
+
+          {/* Google Cloud Credentials Section */}
+          <div className="space-y-3 p-3 bg-bg-elevated rounded-lg border border-border-subtle">
+            <div className="flex items-center gap-2">
+              <Cloud size={16} className="text-text-secondary" />
+              <span className="text-sm font-medium text-text-primary">
+                Google Cloud Credentials
+              </span>
+            </div>
+
+            {hasGoogleCreds ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-xs text-text-secondary">
+                    Credentials configured
+                  </span>
+                </div>
+                <button
+                  onClick={handleRemoveCredentials}
+                  className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 size={12} />
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-text-secondary">
+                  Upload your Google Cloud service account JSON key file.
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs bg-bg-input hover:bg-bg-elevated text-text-primary px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 border border-border-subtle"
+                >
+                  <Upload size={12} />
+                  Upload Service Account Key
+                </button>
+              </div>
+            )}
+
+            {uploadStatus && (
+              <p
+                className={`text-xs ${
+                  uploadStatus.startsWith("Error") ||
+                  uploadStatus.startsWith("Invalid")
+                    ? "text-red-400"
+                    : "text-green-400"
+                }`}
+              >
+                {uploadStatus}
+              </p>
+            )}
           </div>
 
           <div className="h-px bg-border-subtle" />

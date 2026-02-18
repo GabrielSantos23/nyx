@@ -52,6 +52,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getLanguage: () => ipcRenderer.invoke("get-language"),
   setLanguage: (lang: "en-US" | "pt-BR") =>
     ipcRenderer.invoke("set-language", lang),
+  getSTTProvider: () => ipcRenderer.invoke("get-stt-provider"),
+  setSTTProvider: (provider: "web" | "google") =>
+    ipcRenderer.invoke("set-stt-provider", provider),
+  saveGoogleCredentials: (jsonContent: string) =>
+    ipcRenderer.invoke("save-google-credentials", jsonContent),
+  hasGoogleCredentials: () => ipcRenderer.invoke("has-google-credentials"),
+  removeGoogleCredentials: () =>
+    ipcRenderer.invoke("remove-google-credentials"),
   onAssistUpdate: (callback: (data: any) => void) => {
     const handler = (_event: any, value: any) => callback(value);
     ipcRenderer.on("assist_update", handler);

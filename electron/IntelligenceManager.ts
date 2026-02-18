@@ -1,15 +1,49 @@
 import { BrowserWindow } from "electron";
+import * as path from "node:path";
+import * as fs from "node:fs";
+import { app } from "electron";
 import { SystemAudioCapture } from "./audio/SystemAudioCapture";
 import { GoogleSTT } from "./audio/GoogleSTT";
+import { BrowserMicSTT } from "./audio/WebSpeechSTT";
 import { llmHelper } from "./LLMHelper";
+
+type STTProvider = "web" | "google";
+
+const credentialsPath = path.join(app.getPath("userData"), "credentials.json");
+
+function loadSTTProvider(): STTProvider {
+  try {
+    if (fs.existsSync(credentialsPath)) {
+      const data = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+      if (data.sttProvider === "google") return "google";
+    }
+  } catch (e) {
+    console.error("Failed to load STT provider preference:", e);
+  }
+  return "web";
+}
+
+function saveSTTProvider(provider: STTProvider): void {
+  try {
+    let data: Record<string, any> = {};
+    if (fs.existsSync(credentialsPath)) {
+      data = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+    }
+    data.sttProvider = provider;
+    fs.writeFileSync(credentialsPath, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error("Failed to save STT provider preference:", e);
+  }
+}
 
 export class IntelligenceManager {
   private audioCapture: SystemAudioCapture | null = null;
-  private stt: GoogleSTT | null = null;
+  private stt: GoogleSTT | BrowserMicSTT | null = null;
   private contextWindow: string[] = [];
   private isListening: boolean = false;
   private initialized: boolean = false;
   private language: "en-US" | "pt-BR" = "pt-BR";
+  private sttProvider: STTProvider = "web";
   private transcriptHandler:
     | (({ text, isFinal }: { text: string; isFinal: boolean }) => void)
     | null = null;
@@ -17,22 +51,29 @@ export class IntelligenceManager {
 
   constructor() {
     console.log("IntelligenceManager constructor called");
+    this.sttProvider = loadSTTProvider();
+    console.log("STT provider:", this.sttProvider);
   }
 
   private async init() {
     if (this.initialized) return;
     console.log("Initializing IntelligenceManager...");
 
-    try {
-      this.audioCapture = new SystemAudioCapture();
-      console.log("SystemAudioCapture created");
-    } catch (e) {
-      console.error("Failed to create SystemAudioCapture:", e);
-      throw e;
-    }
+    if (this.sttProvider === "google") {
+      try {
+        this.audioCapture = new SystemAudioCapture();
+        console.log("SystemAudioCapture created");
+      } catch (e) {
+        console.error("Failed to create SystemAudioCapture:", e);
+        throw e;
+      }
 
-    this.stt = new GoogleSTT();
-    console.log("GoogleSTT created");
+      this.stt = new GoogleSTT();
+      console.log("GoogleSTT created");
+    } else {
+      this.stt = new BrowserMicSTT();
+      console.log("BrowserMicSTT created (mic capture → backend STT)");
+    }
 
     this.initialized = true;
     console.log("IntelligenceManager initialized");
@@ -46,12 +87,13 @@ export class IntelligenceManager {
       this.stop();
     }
 
+    this.initialized = false;
     await this.init();
 
     this.isListening = true;
     this.contextWindow = [];
 
-    if (!this.audioCapture) {
+    if (this.sttProvider === "google" && !this.audioCapture) {
       console.error("Audio capture not initialized");
       throw new Error("Audio capture not initialized");
     }
@@ -86,27 +128,27 @@ export class IntelligenceManager {
       console.log("No STT client - running in simulation mode");
     }
 
-    this.audioHandler = (audio: Buffer) => {
-      if (this.stt) {
-        this.stt.write(audio);
-      } else {
-        const rms = this.calculateRMS(audio);
-        if (rms > 0.01 && Math.random() > 0.95) {
-          this.handleTranscription("[SIMULATED] User speech detected...");
+    if (this.sttProvider === "google" && this.audioCapture) {
+      this.audioHandler = (audio: Buffer) => {
+        if (this.stt) {
+          this.stt.write(audio);
         }
-      }
-    };
+      };
 
-    this.audioCapture.on("data", this.audioHandler);
-    try {
-      this.audioCapture.start();
+      this.audioCapture.on("data", this.audioHandler);
+      try {
+        this.audioCapture.start();
+        this.notifyListeningState(true);
+        console.log("Audio capture started successfully");
+      } catch (e) {
+        console.error("Failed to start audio capture:", e);
+        if (this.stt) this.stt.stop();
+        this.isListening = false;
+        throw e;
+      }
+    } else {
       this.notifyListeningState(true);
-      console.log("Audio capture started successfully");
-    } catch (e) {
-      console.error("Failed to start audio capture:", e);
-      if (this.stt) this.stt.stop();
-      this.isListening = false;
-      throw e;
+      console.log("Web Speech API mode - microphone handled by browser");
     }
   }
 
@@ -155,6 +197,22 @@ export class IntelligenceManager {
 
   setLanguage(lang: "en-US" | "pt-BR") {
     this.language = lang;
+  }
+
+  getSTTProvider(): STTProvider {
+    return this.sttProvider;
+  }
+
+  setSTTProvider(provider: STTProvider) {
+    this.sttProvider = provider;
+    saveSTTProvider(provider);
+    this.initialized = false;
+    this.audioCapture = null;
+    if (this.stt && "destroy" in this.stt) {
+      (this.stt as BrowserMicSTT).destroy();
+    }
+    this.stt = null;
+    console.log("STT provider changed to:", provider);
   }
 
   private calculateRMS(buffer: Buffer): number {

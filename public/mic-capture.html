@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mic Capture</title>
+  </head>
+  <body>
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      let stream = null;
+      let audioContext = null;
+      let scriptProcessor = null;
+
+      async function startCapture() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              sampleRate: 16000,
+              echoCancellation: true,
+              noiseSuppression: true,
+            },
+          });
+
+          audioContext = new AudioContext({ sampleRate: 16000 });
+          const source = audioContext.createMediaStreamSource(stream);
+
+          // Use ScriptProcessorNode to get raw PCM data
+          scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+          scriptProcessor.onaudioprocess = (e) => {
+            const inputData = e.inputBuffer.getChannelData(0);
+
+            // Convert Float32 to Int16 (LINEAR16)
+            const buffer = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              const s = Math.max(-1, Math.min(1, inputData[i]));
+              buffer[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+
+            ipcRenderer.send("mic-stt-audio", buffer.buffer);
+          };
+
+          source.connect(scriptProcessor);
+          scriptProcessor.connect(audioContext.destination);
+
+          console.log("[MicCapture] Microphone capture started");
+        } catch (err) {
+          console.error("[MicCapture] Failed to start microphone:", err);
+          ipcRenderer.send("mic-stt-error", err.message);
+        }
+      }
+
+      function stopCapture() {
+        if (scriptProcessor) {
+          scriptProcessor.disconnect();
+          scriptProcessor = null;
+        }
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          stream = null;
+        }
+        console.log("[MicCapture] Microphone capture stopped");
+      }
+
+      ipcRenderer.on("mic-stt-start", () => {
+        console.log("[MicCapture] Start command received");
+        startCapture();
+      });
+
+      ipcRenderer.on("mic-stt-stop", () => {
+        console.log("[MicCapture] Stop command received");
+        stopCapture();
+      });
+
+      // Signal ready
+      ipcRenderer.send("mic-stt-ready");
+    </script>
+  </body>
+</html>
