@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Windows
@@ -35,21 +38,14 @@ jobs:
           npm version $VERSION --no-git-tag-version --allow-same-version
 
       - name: Build & Package
-        run: npm run app:build -- --win
-
-      - name: Check Artifacts
-        shell: bash
-        run: ls -R dist
+        run: npm run app:build -- --win --publish never
 
       - name: Upload Release Artifacts
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             dist/*.exe
-            dist/*.dmg
-            dist/*.zip
-            dist/latest-mac.yml
+            dist/*.blockmap
             dist/latest.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
