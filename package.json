@@ -1,13 +1,13 @@
 {
   "name": "nyx",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "scripts": {
     "clean": "node -e \"const fs = require('fs'); ['dist', 'dist-electron'].forEach(dir => fs.rmSync(dir, { recursive: true, force: true }));\"",
     "dev": "vite",
     "build": "npm run clean && vite build",
     "app:dev": "vite",
-    "app:build": "npm run build && tsc -p electron/tsconfig.json && electron-builder",
+    "app:build": "npm run build && npm install --prefix backend && tsc -p electron/tsconfig.json && electron-builder",
     "dist": "npm run app:build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
@@ -69,6 +69,7 @@
       "dist/**/*",
       "dist-electron/**/*",
       "native-module/**/*",
+      "backend/**/*",
       "!**/native-module/target/**",
       "!**/native-module/src/**",
       "!**/native-module/*.log",

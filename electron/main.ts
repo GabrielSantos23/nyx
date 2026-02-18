@@ -52,6 +52,7 @@ function startBackendServer() {
     env: {
       ...process.env,
       NODE_PATH: backendNodeModules,
+      ELECTRON_RUN_AS_NODE: "1",
     },
   });
 
