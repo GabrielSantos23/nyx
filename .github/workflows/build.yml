@@ -35,8 +35,6 @@ jobs:
           npm version $VERSION --no-git-tag-version --allow-same-version
 
       - name: Build & Package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run app:build -- --win
 
       - name: Check Artifacts
