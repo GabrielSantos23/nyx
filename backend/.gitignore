@@ -3,7 +3,7 @@ gen-lang-client-*.json
 service-account.json
 *.json
 !package.json
+!package-lock.json
 
 # Dependencies
 node_modules/
-package-lock.json
