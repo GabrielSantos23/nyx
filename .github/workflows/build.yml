@@ -23,12 +23,23 @@ jobs:
           node-version: 18
           cache: "npm"
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install Main Dependencies
         run: npm ci
 
       - name: Install Backend Dependencies
         working-directory: ./backend
         run: npm ci
+
+      - name: Install Native Module Dependencies
+        working-directory: ./native-module
+        run: npm ci
+
+      - name: Build Native Audio Module
+        working-directory: ./native-module
+        run: npx napi build --platform --release
 
       - name: Set Version from Tag
         shell: bash

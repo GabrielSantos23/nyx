@@ -264,9 +264,15 @@ wss.on("connection", (ws) => {
 
 httpServer.listen(PORT, "127.0.0.1", () => {
   console.log(`[Backend] ✅ Nyx backend running on ws://127.0.0.1:${PORT}`);
-  console.log(
-    `[Backend] 🔐 Using credentials: ${path.basename(CREDENTIALS_PATH)}`,
-  );
+  if (CREDENTIALS_PATH) {
+    console.log(
+      `[Backend] 🔐 Using credentials: ${path.basename(CREDENTIALS_PATH)}`,
+    );
+  } else {
+    console.log(
+      `[Backend] ⚠ No credentials loaded — STT will not work until configured.`,
+    );
+  }
 });
 
 process.on("SIGTERM", () => {

@@ -11,29 +11,41 @@ type STTProvider = "web" | "google";
 
 const credentialsPath = path.join(app.getPath("userData"), "credentials.json");
 
-function loadSTTProvider(): STTProvider {
+function loadCredentialsData(): Record<string, any> {
   try {
     if (fs.existsSync(credentialsPath)) {
-      const data = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
-      if (data.sttProvider === "google") return "google";
+      return JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
     }
   } catch (e) {
-    console.error("Failed to load STT provider preference:", e);
+    console.error("Failed to load credentials:", e);
   }
-  return "web";
+  return {};
 }
 
-function saveSTTProvider(provider: STTProvider): void {
+function saveCredentialsData(updates: Record<string, any>): void {
   try {
     let data: Record<string, any> = {};
     if (fs.existsSync(credentialsPath)) {
       data = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
     }
-    data.sttProvider = provider;
+    Object.assign(data, updates);
     fs.writeFileSync(credentialsPath, JSON.stringify(data, null, 2));
   } catch (e) {
-    console.error("Failed to save STT provider preference:", e);
+    console.error("Failed to save credentials data:", e);
   }
+}
+
+function loadSTTProvider(): STTProvider {
+  const data = loadCredentialsData();
+  if (data.sttProvider === "google") return "google";
+  return "web";
+}
+
+function loadLanguage(): "en-US" | "pt-BR" {
+  const data = loadCredentialsData();
+  if (data.language === "en-US" || data.language === "pt-BR")
+    return data.language;
+  return "en-US";
 }
 
 export class IntelligenceManager {
@@ -42,7 +54,7 @@ export class IntelligenceManager {
   private contextWindow: string[] = [];
   private isListening: boolean = false;
   private initialized: boolean = false;
-  private language: "en-US" | "pt-BR" = "pt-BR";
+  private language: "en-US" | "pt-BR" = "en-US";
   private sttProvider: STTProvider = "web";
   private transcriptHandler:
     | (({ text, isFinal }: { text: string; isFinal: boolean }) => void)
@@ -52,7 +64,8 @@ export class IntelligenceManager {
   constructor() {
     console.log("IntelligenceManager constructor called");
     this.sttProvider = loadSTTProvider();
-    console.log("STT provider:", this.sttProvider);
+    this.language = loadLanguage();
+    console.log("STT provider:", this.sttProvider, "Language:", this.language);
   }
 
   private async init() {
@@ -65,7 +78,18 @@ export class IntelligenceManager {
         console.log("SystemAudioCapture created");
       } catch (e) {
         console.error("Failed to create SystemAudioCapture:", e);
-        throw e;
+        console.warn(
+          "Falling back to BrowserMicSTT (native module not available)",
+        );
+        // Native module not available (e.g. in production build)
+        // Fall back to BrowserMicSTT which captures mic audio and sends to backend
+        this.audioCapture = null;
+        this.stt = new BrowserMicSTT();
+        this.initialized = true;
+        console.log(
+          "IntelligenceManager initialized (fallback to mic capture)",
+        );
+        return;
       }
 
       this.stt = new GoogleSTT();
@@ -93,10 +117,8 @@ export class IntelligenceManager {
     this.isListening = true;
     this.contextWindow = [];
 
-    if (this.sttProvider === "google" && !this.audioCapture) {
-      console.error("Audio capture not initialized");
-      throw new Error("Audio capture not initialized");
-    }
+    // If google provider was selected but native module failed, we've already
+    // fallen back to BrowserMicSTT in init(), so no need to check audioCapture here.
 
     if (this.stt) {
       this.transcriptHandler = ({
@@ -197,6 +219,8 @@ export class IntelligenceManager {
 
   setLanguage(lang: "en-US" | "pt-BR") {
     this.language = lang;
+    saveCredentialsData({ language: lang });
+    console.log("Language saved:", lang);
   }
 
   getSTTProvider(): STTProvider {
@@ -205,7 +229,7 @@ export class IntelligenceManager {
 
   setSTTProvider(provider: STTProvider) {
     this.sttProvider = provider;
-    saveSTTProvider(provider);
+    saveCredentialsData({ sttProvider: provider });
     this.initialized = false;
     this.audioCapture = null;
     if (this.stt && "destroy" in this.stt) {

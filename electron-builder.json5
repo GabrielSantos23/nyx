@@ -23,6 +23,13 @@
         "!node_modules/**/*.ts",
       ],
     },
+    {
+      // Native audio capture module (Rust/NAPI-RS)
+      // Must live outside ASAR so the .node binary can be loaded
+      from: "native-module",
+      to: "native-module",
+      filter: ["index.js", "*.node"],
+    },
   ],
   mac: {
     target: ["dmg"],

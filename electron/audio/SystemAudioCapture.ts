@@ -5,12 +5,20 @@ const fs = require("fs");
 let NativeModule: any = null;
 
 function loadNativeModule() {
-  console.log("Loading native module from:", __dirname);
+  console.log("[SystemAudioCapture] Loading native module...");
+  console.log("[SystemAudioCapture] __dirname:", __dirname);
+  console.log(
+    "[SystemAudioCapture] process.resourcesPath:",
+    process.resourcesPath,
+  );
 
   const possiblePaths = [
+    // Development: native-module is sibling of dist-electron
     path.join(__dirname, "../native-module"),
     path.join(__dirname, "../../native-module"),
+    // Development: relative to working directory
     path.join(process.cwd(), "native-module"),
+    // Production: extraResources are placed in resources/
     process.resourcesPath
       ? path.join(process.resourcesPath, "native-module")
       : null,
@@ -19,22 +27,37 @@ function loadNativeModule() {
   for (const modulePath of possiblePaths) {
     try {
       const indexPath = path.join(modulePath, "index.js");
-      if (fs.existsSync(indexPath)) {
+      const exists = fs.existsSync(indexPath);
+      console.log(
+        `[SystemAudioCapture] Trying ${modulePath} — index.js ${exists ? "found ✅" : "not found"}`,
+      );
+      if (exists) {
         NativeModule = require(modulePath);
-        console.log("Native audio module loaded from:", modulePath);
-        console.log("Exports:", Object.keys(NativeModule));
+        console.log(
+          "[SystemAudioCapture] Native audio module loaded from:",
+          modulePath,
+        );
+        console.log("[SystemAudioCapture] Exports:", Object.keys(NativeModule));
         return;
       }
-    } catch (e) {
-      console.warn("Failed to load from", modulePath, e);
+    } catch (e: any) {
+      console.warn(
+        "[SystemAudioCapture] Failed to load from",
+        modulePath,
+        e.message || e,
+      );
     }
   }
 
   try {
     NativeModule = require("nyx-audio");
-    console.log("Native audio module loaded from nyx-audio package");
-  } catch (e) {
-    console.error("Failed to load nyx-audio module", e);
+    console.log(
+      "[SystemAudioCapture] Native audio module loaded from nyx-audio package",
+    );
+  } catch (e: any) {
+    console.error(
+      "[SystemAudioCapture] Could not load native module from any location",
+    );
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "nyx",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "clean": "node -e \"const fs = require('fs'); ['dist', 'dist-electron'].forEach(dir => fs.rmSync(dir, { recursive: true, force: true }));\"",
     "dev": "vite",
