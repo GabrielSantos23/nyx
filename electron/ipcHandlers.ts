@@ -484,6 +484,16 @@ export function registerHandlers() {
     }
   });
 
+  ipcMain.handle("save-image-to-disk", async (_event, base64Data: string) => {
+    try {
+      const result = await screenshotHelper.saveBase64Image(base64Data);
+      return { success: true, ...result };
+    } catch (error: any) {
+      console.error("save-image-to-disk error:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle("delete-screenshot", async (_event, filePath: string) => {
     try {
       await screenshotHelper.deleteScreenshot(filePath);

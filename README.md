@@ -4,6 +4,25 @@
 
 O Nyx é um assistente de IA moderno que une modelos de IA locais (**Ollama**) e em nuvem (**Gemini**) em uma interface nativa fluida. Construído com a stack **Electron + React + Rust**, ele oferece baixa latência no processamento de áudio e uma experiência de overlay que não interrompe seu fluxo de trabalho.
 
+## Demo
+
+![Demo Nyx AI Assistant - Assistente de Reunião em Tempo Real e Transcrição](assets/nyx-meeting-assistant-demo.gif)
+
+Este exemplo mostra o app de verdade, transcrevendo áudio em tempo real:
+
+- Transcrição em tempo real enquanto a conversa acontece
+- Entendimento contínuo do contexto, mesmo com vários participantes falando
+- Análise de prints dos slides compartilhados
+- Sugestões imediatas do que dizer em seguida
+- Perguntas de acompanhamento e respostas diretas e objetivas
+- Tudo ao vivo, sem precisar gravar ou fazer qualquer processamento depois
+
+### Download Nyx
+
+_The privacy-first AI assistant for meetings._
+
+[![Download for Windows](https://img.shields.io/badge/Download_for-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/GabrielSantos23/nyx/releases/latest)
+
 ## Como funciona?
 
 - **IA Híbrida**: Escolha entre privacidade total com **Llama 3/Mistral** via Ollama ou raciocínio com **Google Gemini**.

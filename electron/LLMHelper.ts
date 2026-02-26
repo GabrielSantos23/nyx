@@ -617,10 +617,33 @@ export class LLMHelper {
     const storedCreds = loadStoredCredentials();
     const selectedModel = storedCreds.selectedModel || this.selectedModel;
     const geminiKey = storedCreds.geminiApiKey;
+    const groqKey = storedCreds.groqApiKey || process.env.GROQ_API_KEY;
 
     const imageBuffer = fs.readFileSync(imagePath);
     const base64Image = imageBuffer.toString("base64");
     const mimeType = imagePath.endsWith(".png") ? "image/png" : "image/jpeg";
+
+    const cleanHistory = [...chatHistory];
+    if (
+      cleanHistory.length > 0 &&
+      cleanHistory[cleanHistory.length - 1].role === "user" &&
+      cleanHistory[cleanHistory.length - 1].content === prompt
+    ) {
+      cleanHistory.pop();
+    }
+
+    if (groqKey) {
+      await this.streamGroqWithImage(
+        groqKey,
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        prompt,
+        base64Image,
+        mimeType,
+        cleanHistory,
+        onChunk,
+      );
+      return;
+    }
 
     if (selectedModel.startsWith("ollama-")) {
       const modelName = selectedModel.replace("ollama-", "");
@@ -628,7 +651,7 @@ export class LLMHelper {
         modelName,
         prompt,
         base64Image,
-        chatHistory,
+        cleanHistory,
         onChunk,
       );
       return;
@@ -641,7 +664,7 @@ export class LLMHelper {
         prompt,
         base64Image,
         mimeType,
-        chatHistory,
+        cleanHistory,
         onChunk,
       );
       return;
@@ -768,6 +791,90 @@ export class LLMHelper {
     } catch (e) {
       console.error("Gemini image stream error:", e);
       onChunk("\n[Error: Gemini API failure]");
+    }
+  }
+
+  private async streamGroqWithImage(
+    apiKey: string,
+    model: string,
+    prompt: string,
+    base64Image: string,
+    mimeType: string,
+    chatHistory: ChatMessage[],
+    onChunk: (chunk: string) => void,
+  ): Promise<void> {
+    const messages: any[] = [
+      { role: "system", content: CHAT_SYSTEM_PROMPT },
+      ...chatHistory.slice(-20),
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${base64Image}`,
+            },
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: model,
+            messages,
+            max_tokens: 1000,
+            temperature: 0.7,
+            stream: true,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Groq API error:", errorText);
+        onChunk(`\n[Error from Groq: ${errorText}]`);
+        return;
+      }
+
+      if (!response.body) throw new Error("No response body");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+          if (line.trim() === "data: [DONE]") return;
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) onChunk(content);
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Groq image stream error:", e);
+      onChunk("\n[Error: Groq API failure]");
     }
   }
 }

@@ -109,6 +109,7 @@ declare global {
       setSTTProvider: (
         provider: "web" | "google",
       ) => Promise<{ success: boolean }>;
+
       saveGoogleCredentials: (
         jsonContent: string,
       ) => Promise<{ success: boolean; error?: string }>;
@@ -219,6 +220,12 @@ declare global {
         error?: string;
       }>;
       takeSelectiveScreenshot: () => Promise<{
+        success: boolean;
+        path?: string;
+        preview?: string;
+        error?: string;
+      }>;
+      saveImageToDisk: (base64Data: string) => Promise<{
         success: boolean;
         path?: string;
         preview?: string;

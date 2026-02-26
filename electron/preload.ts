@@ -135,6 +135,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   takeScreenshot: () => ipcRenderer.invoke("take-screenshot"),
   takeSelectiveScreenshot: () =>
     ipcRenderer.invoke("take-selective-screenshot"),
+  saveImageToDisk: (base64Data: string) =>
+    ipcRenderer.invoke("save-image-to-disk", base64Data),
   deleteScreenshot: (filePath: string) =>
     ipcRenderer.invoke("delete-screenshot", filePath),
   analyzeImageStream: (

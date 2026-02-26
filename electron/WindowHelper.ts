@@ -32,6 +32,7 @@ export class WindowHelper {
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false,
+        webSecurity: false,
       },
     });
 
@@ -72,11 +73,14 @@ export class WindowHelper {
       hasShadow: false,
       alwaysOnTop: true,
       resizable: false,
+      skipTaskbar: true,
+      type: "toolbar",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false,
+        webSecurity: false,
       },
     });
 

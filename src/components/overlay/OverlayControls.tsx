@@ -34,6 +34,34 @@ interface OverlayControlsProps {
 }
 
 const OverlayControls: React.FC<OverlayControlsProps> = (props) => {
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const file = e.clipboardData.files[0];
+      if (file.type.startsWith("image/")) {
+        e.preventDefault();
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const base64Data = event.target?.result as string;
+          if (base64Data) {
+            try {
+              const res = await window.electronAPI.saveImageToDisk(base64Data);
+              if (res.success && res.path && res.preview) {
+                props.setScreenshotPreview({
+                  path: res.path,
+                  preview: res.preview,
+                });
+              }
+            } catch (err) {
+              console.error("Error saving pasted image:", err);
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
   return (
     <>
       <div className="flex flex-nowrap justify-center items-center gap-1.5 px-4 pb-3 pt-3 overflow-x-hidden">
@@ -87,6 +115,7 @@ const OverlayControls: React.FC<OverlayControlsProps> = (props) => {
             value={props.inputValue}
             onChange={(e) => props.setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && props.handleManualSubmit()}
+            onPaste={handlePaste}
             className="w-full bg-[#1E1E1E] hover:bg-[#252525] focus:bg-[#1E1E1E] border border-white/5 focus:border-white/10 focus:ring-1 focus:ring-white/10 rounded-xl pl-3 pr-10 py-2.5 text-slate-200 focus:outline-none transition-all duration-200 text-[13px] leading-relaxed placeholder:text-slate-500"
           />
 

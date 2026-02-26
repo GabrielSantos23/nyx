@@ -1,5 +1,6 @@
-import { BrowserWindow, shell, app } from "electron";
-import { net } from "electron";
+import { BrowserWindow, shell, app, net } from "electron";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const GITHUB_OWNER = "GabrielSantos23";
 const GITHUB_REPO = "nyx";
@@ -12,6 +13,7 @@ export interface ReleaseInfo {
   htmlUrl: string;
   body: string;
   publishedAt: string;
+  assets?: { name: string; browser_download_url: string }[];
 }
 
 function compareSemver(a: string, b: string): number {
@@ -75,13 +77,67 @@ class UpdateManager {
     }
   }
 
+  downloadAndInstallUpdate(): void {
+    if (!this.latestRelease || !this.latestRelease.assets) return;
+
+    const exeAsset = this.latestRelease.assets.find((asset: any) =>
+      asset.name.endsWith(".exe"),
+    );
+
+    if (!exeAsset) {
+      shell.openExternal(this.latestRelease.htmlUrl || RELEASES_PAGE);
+      return;
+    }
+
+    const downloadUrl = exeAsset.browser_download_url;
+    const tempPath = path.join(app.getPath("temp"), exeAsset.name);
+
+    if (fs.existsSync(tempPath)) {
+      shell.openPath(tempPath);
+      setTimeout(() => app.quit(), 1000);
+      return;
+    }
+
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) {
+      win.webContents.session.once(
+        "will-download",
+        (event, item, webContents) => {
+          item.setSavePath(tempPath);
+          broadcastToAllWindows("update-download-started");
+
+          item.on("updated", (event, state) => {
+            if (state === "progressing" && !item.isPaused()) {
+              const rect = Math.floor(
+                (item.getReceivedBytes() / item.getTotalBytes()) * 100,
+              );
+              broadcastToAllWindows("update-download-progress", rect);
+            }
+          });
+
+          item.once("done", (event, state) => {
+            if (state === "completed") {
+              shell.openPath(tempPath);
+              setTimeout(() => app.quit(), 1000);
+            } else {
+              broadcastToAllWindows(
+                "update-error",
+                `Download failed: ${state}`,
+              );
+            }
+          });
+        },
+      );
+      win.webContents.downloadURL(downloadUrl);
+    }
+  }
+
   /**
    * Open the GitHub releases page in the default browser.
    * If a specific release was found, open that release page directly.
    */
   openReleasesPage(): void {
-    const url = this.latestRelease?.htmlUrl || RELEASES_PAGE;
-    shell.openExternal(url);
+    this.downloadAndInstallUpdate();
   }
 
   /**
@@ -126,6 +182,7 @@ class UpdateManager {
               htmlUrl: data.html_url || RELEASES_PAGE,
               body: data.body || "",
               publishedAt: data.published_at || "",
+              assets: data.assets,
             });
           } catch (e: any) {
             reject(new Error("Failed to parse GitHub API response"));

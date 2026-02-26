@@ -42,3 +42,8 @@ backend/gen-lang-client-*.json
 
 # Backend dependencies
 backend/node_modules
+
+# Whisper binaries
+whisper/models/*.bin
+whisper/*.dll
+whisper/*.exe

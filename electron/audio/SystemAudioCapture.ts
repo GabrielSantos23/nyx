@@ -13,12 +13,9 @@ function loadNativeModule() {
   );
 
   const possiblePaths = [
-    // Development: native-module is sibling of dist-electron
     path.join(__dirname, "../native-module"),
     path.join(__dirname, "../../native-module"),
-    // Development: relative to working directory
     path.join(process.cwd(), "native-module"),
-    // Production: extraResources are placed in resources/
     process.resourcesPath
       ? path.join(process.resourcesPath, "native-module")
       : null,

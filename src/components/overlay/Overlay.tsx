@@ -475,7 +475,7 @@ export default function Overlay() {
     setInputValue("");
     setRequestQueue((prev) => [
       ...prev,
-      `Please help me ${type} my last response`,
+      `Please help me ${type} your last response`,
     ]);
   };
 

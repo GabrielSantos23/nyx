@@ -1,4 +1,10 @@
-import { desktopCapturer, screen, BrowserWindow, app, clipboard } from "electron";
+import {
+  desktopCapturer,
+  screen,
+  BrowserWindow,
+  app,
+  clipboard,
+} from "electron";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
@@ -79,9 +85,9 @@ export class ScreenshotHelper {
         await execAsync(`screencapture -i -x "${filePath}"`);
       } else if (process.platform === "win32") {
         const { spawn } = require("child_process");
-        
+
         clipboard.clear();
-        
+
         await new Promise<void>((resolve) => {
           const ps = spawn("powershell.exe", [
             "-NoProfile",
@@ -90,18 +96,18 @@ export class ScreenshotHelper {
             "-Command",
             `Add-Type -AssemblyName System.Windows.Forms; [Windows.Forms.SendKeys]::SendWait('+(%{PRTSC})')`,
           ]);
-          
+
           ps.on("close", () => resolve());
           setTimeout(() => resolve(), 1000);
         });
-        
+
         await new Promise((r) => setTimeout(r, 2000));
-        
+
         const image = clipboard.readImage();
         if (image.isEmpty()) {
           throw new Error("Screenshot cancelled or failed");
         }
-        
+
         const pngBuffer = image.toPNG();
         fs.writeFileSync(filePath, pngBuffer);
       } else {
@@ -121,6 +127,18 @@ export class ScreenshotHelper {
         win.show();
       }
     }
+  }
+
+  async saveBase64Image(base64Data: string): Promise<ScreenshotResult> {
+    const filename = `${uuid.v4()}.png`;
+    const filePath = path.join(this.screenshotDir, filename);
+
+    const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Image, "base64");
+    fs.writeFileSync(filePath, buffer);
+
+    const preview = this.getPreview(buffer);
+    return { path: filePath, preview };
   }
 
   private getPreview(buffer: Buffer): string {
